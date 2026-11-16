@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Bin NOLUA</title>
+<style>
+:root{
+  --bg:#080d1c; --panel:#111a33; --panel2:#0d1530; --line:#22305a; --text:#e9eeff; --muted:#8393bd;
+  --ok:#2fe07a; --warn:#ffb020; --crit:#ff4d5e; --dry:#38bdf8; --wet:#a3e635; --accent:#6ea8ff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,Roboto,sans-serif;min-height:100vh}
+button,input,select{font:inherit}
+.top{display:flex;align-items:center;gap:14px;padding:12px 20px;background:var(--panel2);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#2fe07a,#38bdf8);display:grid;place-items:center;font-size:22px}
+.top h1{font-size:20px;line-height:1.1} .top h1 span{color:#ffe14d}
+.top small{display:block;color:var(--muted);font-size:12px;font-weight:400}
+.sp{flex:1}
+.pill{padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;border:1px solid var(--line);background:#16213f;color:var(--muted)}
+.pill.live{color:var(--ok);border-color:var(--ok);background:#0b2a1b}
+.pill.stale{color:var(--warn);border-color:var(--warn);background:#2c2106}
+#clock{color:var(--muted);font-size:13px}
+.layout{display:grid;grid-template-columns:300px 1fr;gap:18px;padding:18px 20px;max-width:1250px;margin:0 auto}
+@media(max-width:860px){.layout{grid-template-columns:1fr;padding:14px}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px}
+.panel h3{font-size:15px;margin-bottom:12px;color:#cfd9ff}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--panel2);border-radius:12px;padding:4px;margin-bottom:14px}
+.seg button{border:0;background:transparent;color:var(--muted);padding:9px 4px;border-radius:9px;font-weight:700;cursor:pointer;font-size:13px}
+.seg button.on{background:var(--accent);color:#06102b}
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+input,select{width:100%;padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{width:100%;margin-top:14px;padding:11px;border:0;border-radius:11px;font-weight:800;cursor:pointer;background:var(--ok);color:#04210f}
+.btn.off{background:var(--crit);color:#fff}
+.btn.sec{background:#1d2a50;color:var(--text);margin-top:8px}
+.hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+#msg{font-size:13px;margin-top:12px;color:var(--muted);line-height:1.45}
+.chip{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;background:#16213f}
+.chip.ok{color:var(--ok)} .chip.bad{color:var(--crit)}
+.bins{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:1000px){.bins{grid-template-columns:1fr}}
+.bin{--c:var(--dry);background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:18px;padding:18px;transition:box-shadow .3s}
+.bin.wet{--c:var(--wet)}
+.bin.s-crit{box-shadow:0 0 0 1px var(--crit),0 0 28px -8px var(--crit)}
+.bhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.bhead h2{font-size:19px;display:flex;align-items:center;gap:8px}
+.bhead h2 i{width:12px;height:12px;border-radius:50%;background:var(--c);display:inline-block}
+.badge{padding:5px 14px;border-radius:16px;font-weight:800;font-size:13px;border:1.5px solid}
+.b-normal{color:var(--ok);border-color:var(--ok);background:#0b2a1b}
+.b-warn{color:var(--warn);border-color:var(--warn);background:#2c2106}
+.b-crit{color:#ffb3bb;border-color:var(--crit);background:#3a0e16}
+.b-na{color:var(--muted);border-color:var(--line)}
+.bbody{display:flex;gap:20px;align-items:stretch}
+.tank{position:relative;width:96px;min-height:210px;border-radius:14px;background:var(--panel2);border:2px solid var(--line);overflow:hidden;flex:none}
+.fill{position:absolute;left:0;right:0;bottom:0;height:0;transition:height .7s,background .4s;background:var(--ok)}
+.fill::before{content:"";position:absolute;left:0;right:0;top:-1px;height:3px;background:rgba(255,255,255,.55)}
+.mk{position:absolute;left:0;right:0;border-top:1.5px dashed rgba(255,255,255,.35);font-size:10px;color:rgba(255,255,255,.6);padding-left:4px}
+.tank .pc{position:absolute;inset:0;display:grid;place-items:center;font-size:26px;font-weight:800;text-shadow:0 2px 6px #000}
+.stats{flex:1;display:flex;flex-direction:column;justify-content:space-between;gap:10px;min-width:0}
+.big{font-size:44px;font-weight:800;line-height:1}
+.big small{font-size:15px;color:var(--muted);font-weight:500;margin-left:6px}
+.kv{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
+.kv b{color:var(--text);font-size:16px}
+.kv b.dist{color:#5de6ff}
+.bar{height:12px;background:var(--panel2);border-radius:8px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;transition:width .7s,background .4s;background:var(--ok)}
+.bz{margin-top:14px;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-size:14px}
+.bz .st{font-weight:800;padding:4px 14px;border-radius:14px;background:#0d3a21;color:var(--ok)}
+.bz.on{border-color:var(--crit)} .bz.on .st{background:#b3101f;color:#fff;animation:bl 1s infinite}
+@keyframes bl{50%{opacity:.5}}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+.alert{margin-top:16px;padding:16px 18px;border-radius:16px;background:#0b2217;border:1px solid #1f6a41;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.alert.on{background:#2b0d14;border-color:var(--crit)}
+.alert .ic{font-size:30px}
+.alert .tx{flex:1;min-width:200px} .alert .tx b{display:block;font-size:17px;margin-bottom:2px}
+.alert .tx span{color:var(--muted);font-size:14px}
+.tg{padding:8px 14px;border-radius:12px;font-size:13px;font-weight:700;background:#16213f;color:var(--muted)}
+.tg.sent{background:#0d3a21;color:var(--ok)}
+.log{max-height:190px;overflow:auto;font-size:13px;font-family:ui-monospace,Consolas,monospace;line-height:1.7}
+.log div{color:var(--muted)} .log div b{color:var(--text);font-weight:600}
+.log div.w{color:var(--warn)} .log div.c{color:#ff8b98} .log div.g{color:var(--ok)}
+.foot{text-align:center;color:var(--muted);font-size:13px;padding:6px 0 20px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="logo">♻️</div>
+  <h1>Smart Bin <span>NOLUA</span><small>ESP32 Smart Waste Management System</small></h1>
+  <div class="sp"></div>
+  <span id="clock"></span>
+  <span class="pill" id="pill">● Offline</span>
+</div>
+
+<div class="layout">
+  <aside>
+    <div class="panel">
+      <h3>🔗 ESP32 से Connect करें</h3>
+      <div class="seg">
+        <button data-m="wifi" class="on">📶 Wireless (WiFi)</button>
+        <button data-m="usb">🔌 Wired (USB)</button>
+      </div>
+
+      <div id="p-wifi">
+        <label>ESP32 IP Address</label>
+        <input id="ip" inputmode="decimal" placeholder="192.168.1.50">
+        <label>Refresh (सेकंड)</label>
+        <input id="interval" type="number" min="1" value="2">
+        <p class="hint">ESP32 Serial Monitor में दिखा IP डालें। phone/PC और ESP32 एक ही WiFi पर हों। अगर यह page ESP32 के IP से ही खोला है तो IP खाली छोड़ सकते हैं।</p>
+      </div>
+
+      <div id="p-usb" class="hide">
+        <label>Baud Rate</label>
+        <select id="baud"><option>115200</option><option>9600</option><option>57600</option><option>230400</option></select>
+        <p class="hint">ESP32 को USB cable से इस device में लगाएँ, Connect दबाकर COM port चुनें। Chrome / Edge ज़रूरी है। (Arduino Serial Monitor बंद रखें — port एक बार में एक ही app इस्तेमाल कर सकता है।)</p>
+      </div>
+
+      <button class="btn" id="btn-connect">Connect</button>
+      <button class="btn off hide" id="btn-stop">Disconnect</button>
+      <div id="msg">Connect दबाकर शुरू करें।</div>
+      <div class="hint">ESP32 WiFi: <span class="chip" id="espwifi">--</span></div>
+    </div>
+
+    <div class="panel">
+      <h3>⚙️ Settings</h3>
+      <label>Bin की गहराई (cm)</label>
+      <input id="height" type="number" min="5" value="30">
+      <div class="two">
+        <div><label>Warning %</label><input id="warn" type="number" value="70"></div>
+        <div><label>Critical %</label><input id="crit" type="number" value="90"></div>
+      </div>
+      <p class="hint">Critical % पर Buzzer / Alert सक्रिय माना जाता है (ESP32 code में 90%)।</p>
+    </div>
+  </aside>
+
+  <main>
+    <div class="bins">
+      <section class="bin dry" id="bin-dry">
+        <div class="bhead"><h2><i></i>Dry Waste Bin</h2><span class="badge b-na">NO DATA</span></div>
+        <div class="bbody">
+          <div class="tank"><div class="fill"></div><div class="mk" style="bottom:70%">W</div><div class="mk" style="bottom:90%">C</div><div class="pc">--%</div></div>
+          <div class="stats">
+            <div class="big"><span class="v">--</span><small>% Filled</small></div>
+            <div class="bar"><i></i></div>
+            <div class="kv"><span>Distance</span><b class="dist">-- cm</b></div>
+            <div class="kv"><span>Filled Status</span><b class="fs">--</b></div>
+          </div>
+        </div>
+        <div class="bz"><span>🔔 Dry Bin Buzzer</span><span class="st">BUZZER OFF</span></div>
+      </section>
+
+      <section class="bin wet" id="bin-wet">
+        <div class="bhead"><h2><i></i>Wet Waste Bin</h2><span class="badge b-na">NO DATA</span></div>
+        <div class="bbody">
+          <div class="tank"><div class="fill"></div><div class="mk" style="bottom:70%">W</div><div class="mk" style="bottom:90%">C</div><div class="pc">--%</div></div>
+          <div class="stats">
+            <div class="big"><span class="v">--</span><small>% Filled</small></div>
+            <div class="bar"><i></i></div>
+            <div class="kv"><span>Distance</span><b class="dist">-- cm</b></div>
+            <div class="kv"><span>Filled Status</span><b class="fs">--</b></div>
+          </div>
+        </div>
+        <div class="bz"><span>🔔 Wet Bin Buzzer</span><span class="st">BUZZER OFF</span></div>
+      </section>
+    </div>
+    <p class="note">दोनों Bin एक ही Buzzer (GPIO 22) शेयर करते हैं, इसलिए हर Bin का Buzzer Status उसके अपने Level (≥ Critical %) से तय होकर दिखाया जाता है। असली GPIO 22 की स्थिति: <b id="realbz">--</b></p>
+
+    <div class="alert" id="alert">
+      <div class="ic" id="al-ic">⏳</div>
+      <div class="tx"><b id="al-t">ESP32 से Data का इंतज़ार</b><span id="al-s">Connect करने पर यहाँ Alert दिखेंगे।</span></div>
+      <div class="tg" id="tg">Telegram: --</div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h3>📜 Event Log</h3>
+      <div class="log" id="log"></div>
+    </div>
+    <div class="foot"><i>Clean Uttarakhand • Green Future</i> 🍃</div>
+  </main>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const SELF = location.protocol==='http:'||location.protocol==='https:';
+let cfg = Object.assign({mode:'wifi', ip:'', interval:2, height:30, warn:70, crit:90, baud:'115200'}, load());
+let timer=null, port=null, reader=null, closed=null, connected=false, lastTs=0, prev={dry:null,wet:null}, prevTg=null;
+
+function load(){ try{return JSON.parse(localStorage.getItem('nolua_v2')||'{}')}catch(e){return {}} }
+function save(){ try{localStorage.setItem('nolua_v2',JSON.stringify(cfg))}catch(e){} }
+function msg(t){ $('#msg').textContent=t; }
+function log(t,cls=''){
+  const d=document.createElement('div'); if(cls)d.className=cls;
+  d.innerHTML='<b>'+new Date().toLocaleTimeString('en-IN',{hour12:false})+'</b> — '+t;
+  const L=$('#log'); L.prepend(d); while(L.children.length>40)L.lastChild.remove();
+}
+
+function readForm(){
+  cfg.ip=$('#ip').value.trim().replace(/^https?:\/\//,'').replace(/\/.*$/,'');
+  cfg.interval=Math.max(1,+$('#interval').value||2); cfg.baud=$('#baud').value;
+  cfg.height=Math.max(5,+$('#height').value||30); cfg.warn=+$('#warn').value||70; cfg.crit=+$('#crit').value||90;
+  save(); $$('.mk').forEach((m,i)=>{ m.style.bottom=(i%2?cfg.crit:cfg.warn)+'%'; });
+}
+function fillForm(){
+  $('#ip').value=cfg.ip; $('#interval').value=cfg.interval; $('#baud').value=cfg.baud;
+  $('#height').value=cfg.height; $('#warn').value=cfg.warn; $('#crit').value=cfg.crit;
+  setMode(cfg.mode);
+  $$('.mk').forEach((m,i)=>{ m.style.bottom=(i%2?cfg.crit:cfg.warn)+'%'; });
+}
+function setMode(m){
+  cfg.mode=m; save();
+  $$('.seg button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  $('#p-wifi').classList.toggle('hide',m!=='wifi'); $('#p-usb').classList.toggle('hide',m!=='usb');
+}
+
+const level = d => Math.max(0,Math.min(100,Math.round((cfg.height-d)/cfg.height*100)));
+const sOf = p => p>=cfg.crit?['crit','CRITICAL']:p>=cfg.warn?['warn','WARNING']:['normal','NORMAL'];
+const col = p => p>=cfg.crit?'var(--crit)':p>=cfg.warn?'var(--warn)':'var(--ok)';
+
+function renderBin(id,d){
+  const dist = d.distance!==undefined ? +d.distance : cfg.height*(1-(+d.percent)/100);
+  const p=level(dist), [cls,txt]=sOf(p), el=$('#bin-'+id);
+  el.classList.toggle('s-crit',cls==='crit');
+  const b=el.querySelector('.badge'); b.className='badge b-'+cls; b.textContent=(cls==='normal'?'✅ ':'⚠️ ')+txt;
+  el.querySelector('.fill').style.height=p+'%'; el.querySelector('.fill').style.background=col(p);
+  el.querySelector('.pc').textContent=p+'%'; el.querySelector('.v').textContent=p;
+  el.querySelector('.bar i').style.width=p+'%'; el.querySelector('.bar i').style.background=col(p);
+  el.querySelector('.dist').textContent=dist.toFixed(1)+' cm';
+  el.querySelector('.fs').textContent = p>=cfg.crit?'Full (भरा हुआ)':p>=cfg.warn?'Almost Full':'Space Available';
+  const on=p>=cfg.crit, bz=el.querySelector('.bz'); bz.classList.toggle('on',on); bz.querySelector('.st').textContent=on?'BUZZER ON':'BUZZER OFF';
+  if(prev[id]!==cls){
+    if(prev[id]!==null||cls!=='normal') log((id==='dry'?'Dry':'Wet')+' Bin → '+txt+' ('+p+'%)', cls==='crit'?'c':cls==='warn'?'w':'g');
+    prev[id]=cls;
+  }
+  return {p,on};
+}
+
+function handle(j){
+  lastTs=Date.now();
+  const D=renderBin('dry',j.dry), W=renderBin('wet',j.wet);
+  const full=[]; if(D.on)full.push('Dry Bin '+D.p+'% FULL'); if(W.on)full.push('Wet Bin '+W.p+'% FULL');
+  const al=$('#alert'); al.classList.toggle('on',full.length>0);
+  $('#al-ic').textContent=full.length?'🚨':'✅';
+  $('#al-t').textContent=full.length?full.join(' • ')+'!':'सब सामान्य है';
+  $('#al-s').textContent=full.length?'कृपया Bin तुरंत खाली करें।':'कोई Bin भरा हुआ नहीं है।';
+  const sent = j.telegram===undefined ? full.length>0 : !!j.telegram;
+  const tg=$('#tg'); tg.classList.toggle('sent',full.length>0&&sent);
+  tg.textContent = full.length ? (sent?'✔ Telegram Alert Sent':'Telegram भेजा जा रहा है…') : 'Telegram: कोई Alert नहीं';
+  if(full.length&&sent&&prevTg!==true) log('Telegram Alert भेजा गया','g'); prevTg=full.length?sent:null;
+  if(j.buzzer!==undefined) $('#realbz').textContent=j.buzzer?'ON':'OFF';
+  if(j.wifi!==undefined){ const c=$('#espwifi'); c.textContent=j.wifi?'Connected':'Not connected'; c.className='chip '+(j.wifi?'ok':'bad'); }
+  setPill('live');
+}
+
+function setPill(s){
+  const p=$('#pill'); p.className='pill '+(s==='live'?'live':s==='stale'?'stale':'');
+  p.textContent = s==='live' ? '● '+(cfg.mode==='usb'?'USB':'WiFi')+' • Live' : s==='stale' ? '● Data नहीं आ रहा' : '● Offline';
+}
+function setUi(on){
+  connected=on; $('#btn-connect').classList.toggle('hide',on); $('#btn-stop').classList.toggle('hide',!on);
+  $$('.seg button').forEach(b=>b.disabled=on);
+  if(!on){ setPill('off'); }
+}
+
+/* ---------- Wireless ---------- */
+async function fetchEsp(){
+  const c=new AbortController(), t=setTimeout(()=>c.abort(),3000);
+  try{
+    const r=await fetch((cfg.ip?'http://'+cfg.ip:'')+'/data',{signal:c.signal,cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    handle(await r.json()); msg('✔ WiFi से Data मिल रहा है।'); return true;
+  }catch(e){
+    msg('✖ ESP32 से Connect नहीं हो पाया ('+(e.name==='AbortError'?'Timeout':e.message)+'). IP/WiFi जाँचें।'); return false;
+  }finally{ clearTimeout(t); }
+}
+function wifiStart(){
+  if(!cfg.ip&&!SELF){ msg('पहले ESP32 का IP डालें।'); return false; }
+  setUi(true); log('WiFi से Connect: '+(cfg.ip||location.host)); fetchEsp(); timer=setInterval(fetchEsp,cfg.interval*1000); return true;
+}
+
+/* ---------- Wired (Web Serial) ---------- */
+async function usbStart(){
+  if(!('serial' in navigator)){ msg('इस browser में USB (Web Serial) सपोर्ट नहीं है — Chrome या Edge इस्तेमाल करें।'); return false; }
+  try{
+    port=await navigator.serial.requestPort();
+    await port.open({baudRate:+cfg.baud});
+  }catch(e){ msg('✖ USB Connect नहीं हुआ: '+e.message); port=null; return false; }
+  setUi(true); msg('✔ USB से जुड़ गया। Data का इंतज़ार…'); log('USB Serial Connect ('+cfg.baud+' baud)');
+  const dec=new TextDecoderStream(); closed=port.readable.pipeTo(dec.writable).catch(()=>{});
+  reader=dec.readable.getReader(); usbLoop(); return true;
+}
+async function usbLoop(){
+  let buf='';
+  try{
+    while(true){
+      const {value,done}=await reader.read(); if(done)break; buf+=value;
+      let i; while((i=buf.indexOf('\n'))>=0){
+        const line=buf.slice(0,i).trim(); buf=buf.slice(i+1);
+        if(line[0]==='{'){ try{ handle(JSON.parse(line)); msg('✔ USB से Data मिल रहा है।'); }catch(e){} }
+      }
+    }
+  }catch(e){}
+  if(connected&&cfg.mode==='usb'){ msg('USB connection टूट गया।'); log('USB disconnect','c'); await stopAll(true); }
+}
+
+async function stopAll(fromLoop){
+  clearInterval(timer); timer=null;
+  if(port){
+    try{ if(reader&&!fromLoop) await reader.cancel(); }catch(e){}
+    try{ await closed; }catch(e){}
+    try{ await port.close(); }catch(e){}
+    port=null; reader=null;
+  }
+  setUi(false); if(!fromLoop) msg('Disconnected.');
+}
+
+$$('.seg button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+$('#btn-connect').onclick=async()=>{ readForm(); if(cfg.mode==='usb') await usbStart(); else wifiStart(); };
+$('#btn-stop').onclick=()=>{ log('Disconnected'); stopAll(false); };
+['height','warn','crit'].forEach(i=>$('#'+i).addEventListener('change',readForm));
+setInterval(()=>{
+  $('#clock').textContent=new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+  if(connected&&lastTs&&Date.now()-lastTs>6000) setPill('stale');
+},1000);
+
+fillForm();
+if(!('serial' in navigator)) $('#p-usb .hint').textContent='⚠️ यह browser USB (Web Serial) सपोर्ट नहीं करता — Chrome/Edge (PC या Android) में खोलें।';
+if(SELF && cfg.mode==='wifi' && location.hostname!=='' ) { wifiStart(); }
+</script>
+</body>
+</html>
